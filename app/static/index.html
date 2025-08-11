@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Quick-bag prototype</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 700px; margin: 20px auto; padding: 10px; }
+        form { margin-bottom: 20px; border: 1px solid #ddd; padding: 15px; border-radius: 5px; }
+        input, select, button { display: block; margin: 10px 0; padding: 8px; width: 100%; max-width: 100%; }
+        button { background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background-color: #45a049; }
+        button:disabled { background-color: #cccccc; cursor: not-allowed; }
+        #output { white-space: pre-wrap; border: 1px solid #ccc; padding: 10px; background: #fafafa; min-height: 150px; }
+        h1, h2 { text-align: center; }
+        .user-info { background: #e8f5e8; padding: 10px; border-radius: 5px; margin-bottom: 20px; }
+        #bookingForm, #createFoodBagForm, #updateFoodBagForm, #deleteFoodBagForm {
+            display: none;
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        label {
+            margin-top: 10px;
+            display: block;
+            font-weight: bold;
+        }
+        #foodBagsList {
+            margin-top: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+        }
+        .foodBagCard {
+            border: 1px solid #ccc;
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 5px;
+            background: #fff;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Quick-bag prototype</h1>
+
+<!-- Информация о текущем пользователе -->
+<div id="userInfo" class="user-info" style="display: none;">
+    <strong>Logged in as:</strong> <span id="currentUser"></span>
+    (<span id="currentRole"></span>)
+    <button onclick="logout()" style="width: auto; float: right;">Logout</button>
+    <div style="clear: both;"></div>
+</div>
+
+<!-- Регистрация -->
+<div id="registerSection">
+    <h2>Register</h2>
+    <form id="registerForm" onsubmit="event.preventDefault(); register()">
+        <input type="email" name="email" placeholder="Email" required />
+        <input type="password" name="password" placeholder="Password (min 6 chars)" minlength="6" required />
+        <select name="role" required>
+            <option value="client">Client (can book food bags)</option>
+            <option value="establishment">Establishment (can create food bags)</option>
+        </select>
+        <button type="submit">Register</button>
+    </form>
+</div>
+
+<!-- Вход -->
+<div id="loginSection">
+    <h2>Login</h2>
+    <form id="loginForm" onsubmit="event.preventDefault(); login()">
+        <input type="email" name="email" placeholder="Email (try: admin@admin)" required />
+        <input type="password" name="password" placeholder="Password (try: admin)" required />
+        <button type="submit">Login</button>
+    </form>
+</div>
+
+<!-- Форма создания коризны -->
+<div id="createFoodBagForm">
+    <h2>Create Food Bag</h2>
+    <label>Name:</label>
+    <input type="text" id="foodBagName" placeholder="Name" required />
+    <label>Description:</label>
+    <input type="text" id="foodBagDescription" placeholder="Description" />
+    <label>Price (руб):</label>
+    <input type="number" id="foodBagPrice" step="0.01" placeholder="Price" required />
+    <label>Discounted Price (руб):</label>
+    <input type="number" id="foodBagDiscountedPrice" step="0.01" placeholder="Discounted Price" required />
+    <label>Quantity:</label>
+    <input type="number" id="foodBagQuantity" min="1" value="1" required />
+    <label>Address:</label>
+    <input type="text" id="foodBagAddress" placeholder="Address" required />
+    <label>Pickup Time:</label>
+    <input type="datetime-local" id="foodBagPickupTime" required />
+    <button onclick="submitCreateFoodBag()">Submit</button>
+    <button onclick="hideCreateFoodBagForm()">Cancel</button>
+</div>
+
+<!-- Форма обновления корзины -->
+<div id="updateFoodBagForm">
+    <h2>Update Food Bag</h2>
+    <label>Select Food Bag:</label>
+    <select id="updateFoodBagSelect"></select>
+    <label>Name:</label>
+    <input type="text" id="updateFoodBagName" placeholder="Name" required />
+    <label>Description:</label>
+    <input type="text" id="updateFoodBagDescription" placeholder="Description" />
+    <label>Price (руб):</label>
+    <input type="number" id="updateFoodBagPrice" step="0.01" placeholder="Price" required />
+    <label>Discounted Price (руб):</label>
+    <input type="number" id="updateFoodBagDiscountedPrice" step="0.01" placeholder="Discounted Price" required />
+    <label>Quantity:</label>
+    <input type="number" id="updateFoodBagQuantity" min="1" value="1" required />
+    <label>Address:</label>
+    <input type="text" id="updateFoodBagAddress" placeholder="Address" required />
+    <label>Pickup Time:</label>
+    <input type="datetime-local" id="updateFoodBagPickupTime" required />
+    <button onclick="submitUpdateFoodBag()">Submit</button>
+    <button onclick="hideUpdateFoodBagForm()">Cancel</button>
+</div>
+
+<!-- Форма удаления корзины -->
+<div id="deleteFoodBagForm">
+    <h2>Delete Food Bag</h2>
+    <label>Select Food Bag:</label>
+    <select id="deleteFoodBagSelect"></select>
+    <button onclick="submitDeleteFoodBag()">Delete</button>
+    <button onclick="hideDeleteFoodBagForm()">Cancel</button>
+</div>
+
+<!-- Форма бронирования -->
+<div id="bookingForm">
+    <h2>Book Food Bag</h2>
+    <label for="foodBagSelect">Select Food Bag:</label>
+    <select id="foodBagSelect" required></select>
+
+    <label for="quantityInput">Quantity:</label>
+    <input type="number" id="quantityInput" min="1" value="1" required />
+
+    <button onclick="bookFoodBag()">Book Selected Food Bag</button>
+</div>
+
+<!-- Блок действий -->
+<div id="actionsSection" style="display: none;">
+    <h2>Actions</h2>
+    <button onclick="getFoodBagsWithFilter()">Get Food Bags</button>
+    <button onclick="getUsers()" id="getUsersBtn" disabled>Get All Users (admin only)</button>
+    <button onclick="showCreateFoodBagForm()" id="createFoodBagBtn" disabled>Create Food Bag</button>
+    <button onclick="showUpdateFoodBagForm()" id="updateFoodBagBtn" disabled>Update Food Bag</button>
+    <button onclick="showDeleteFoodBagForm()" id="deleteFoodBagBtn" disabled>Delete Food Bag</button>
+    <button onclick="toggleBookingForm()" id="bookFoodBagBtn" disabled>Book Food Bag</button>
+</div>
+
+<!-- Список корзин с фильтром -->
+<div id="foodBagsList" style="margin-top: 20px; display: none;">
+    <h2>Available Food Bags</h2>
+    <label for="filterAddress">Filter by city/address:</label>
+    <input type="text" id="filterAddress" placeholder="Enter city or address" />
+    <button onclick="getFoodBagsWithFilter()">Filter</button>
+    <div id="foodBagsContainer"></div>
+</div>
+
+<pre id="output"></pre>
+
+<script>
+    let currentUser = null;
+    let currentUserRole = null;
+    let availableFoodBags = [];
+
+    function showOutput(text) {
+        document.getElementById('output').textContent = text;
+    }
+
+    // Управление формами
+    function showCreateFoodBagForm() {
+        hideUpdateFoodBagForm();
+        hideDeleteFoodBagForm();
+        document.getElementById('createFoodBagForm').style.display = 'block';
+    }
+    function hideCreateFoodBagForm() {
+        document.getElementById('createFoodBagForm').style.display = 'none';
+    }
+    function showUpdateFoodBagForm() {
+        hideCreateFoodBagForm();
+        hideDeleteFoodBagForm();
+        document.getElementById('updateFoodBagForm').style.display = 'block';
+        populateUpdateFoodBagSelect(true);
+    }
+    function hideUpdateFoodBagForm() {
+        document.getElementById('updateFoodBagForm').style.display = 'none';
+    }
+    function showDeleteFoodBagForm() {
+        hideCreateFoodBagForm();
+        hideUpdateFoodBagForm();
+        document.getElementById('deleteFoodBagForm').style.display = 'block';
+        populateDeleteFoodBagSelect();
+    }
+    function hideDeleteFoodBagForm() {
+        document.getElementById('deleteFoodBagForm').style.display = 'none';
+    }
+
+    // Обновление UI после логина и при изменениях авторизации
+    function updateUI() {
+        const loggedIn = currentUser !== null;
+        document.getElementById('registerSection').style.display = loggedIn ? 'none' : 'block';
+        document.getElementById('loginSection').style.display = loggedIn ? 'none' : 'block';
+        document.getElementById('actionsSection').style.display = loggedIn ? 'block' : 'none';
+        document.getElementById('userInfo').style.display = loggedIn ? 'block' : 'none';
+        document.getElementById('foodBagsList').style.display = loggedIn ? 'block' : 'none';
+
+        hideCreateFoodBagForm();
+        hideUpdateFoodBagForm();
+        hideDeleteFoodBagForm();
+        document.getElementById('bookingForm').style.display = 'none';
+
+        if (loggedIn) {
+            document.getElementById('currentUser').textContent = currentUser.email || '';
+            document.getElementById('currentRole').textContent = currentUser.role || '';
+
+            document.getElementById('createFoodBagBtn').disabled = !(currentUser.role === 'admin' || currentUser.role === 'establishment');
+            document.getElementById('updateFoodBagBtn').disabled = !(currentUser.role === 'admin' || currentUser.role === 'establishment');
+            document.getElementById('deleteFoodBagBtn').disabled = !(currentUser.role === 'admin' || currentUser.role === 'establishment');
+            document.getElementById('getUsersBtn').disabled = currentUser.role !== 'admin';
+            document.getElementById('bookFoodBagBtn').disabled = !(currentUser.role === 'client' || currentUser.role === 'admin');
+        }
+    }
+
+    // Запросы к API
+
+    async function register() {
+        const form = document.getElementById('registerForm');
+        const payload = {
+            email: form.email.value,
+            password: form.password.value,
+            role: form.role.value
+        };
+        try {
+            const response = await fetch('/users/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json();
+            if (response.ok) {
+                showOutput(`User ${payload.email} registered successfully as ${payload.role}`);
+            } else {
+                showOutput(`Registration failed: ${data.detail || JSON.stringify(data)}`);
+            }
+        } catch (err) {
+            showOutput('Error during registration: ' + err.message);
+        }
+    }
+
+    async function login() {
+        const form = document.getElementById('loginForm');
+        const params = new URLSearchParams({
+            email: form.email.value,
+            password: form.password.value
+        });
+        try {
+            const response = await fetch('/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: params
+            });
+            const data = await response.json();
+            if (response.ok) {
+                localStorage.setItem('access_token', data.access_token);
+                await fetchCurrentUser();
+            } else {
+                showOutput(`Login failed: ${data.detail || JSON.stringify(data)}`);
+            }
+        } catch (err) {
+            showOutput('Error during login: ' + err.message);
+        }
+    }
+
+    async function fetchCurrentUser() {
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+            currentUser = null;
+            updateUI();
+            return;
+        }
+        try {
+            const response = await fetch('/auth/me', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (response.ok) {
+                currentUser = await response.json();
+                currentUserRole = currentUser.role;
+                showOutput(`Logged in successfully as ${currentUser.email} (${currentUser.role})`);
+            } else {
+                throw new Error('Failed to fetch user data');
+            }
+        } catch (err) {
+            showOutput('Error fetching user data: ' + err.message);
+            currentUser = null;
+            localStorage.removeItem('access_token');
+        }
+        updateUI();
+        await getFoodBagsWithFilter();
+    }
+
+    async function getFoodBagsWithFilter() {
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+            showOutput('Please login first');
+            return;
+        }
+        const addressFilter = document.getElementById('filterAddress').value.trim();
+        try {
+            const url = addressFilter ? `/food-bags/?address=${encodeURIComponent(addressFilter)}` : '/food-bags/';
+            const response = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+            if (response.ok) {
+                const data = await response.json();
+                availableFoodBags = data;
+                renderFoodBagsList(data);
+                showOutput(`Found ${data.length} food bags`);
+            } else {
+                const data = await response.json();
+                showOutput(`Failed to get food bags: ${data.detail || JSON.stringify(data)}`);
+            }
+        } catch (err) {
+            showOutput('Error while fetching food bags: ' + err.message);
+        }
+    }
+
+    function renderFoodBagsList(foodBags) {
+        const container = document.getElementById('foodBagsContainer');
+        container.innerHTML = '';
+        if (!foodBags.length) {
+            container.innerHTML = '<p>No food bags found.</p>';
+            return;
+        }
+        foodBags.forEach(fb => {
+            const card = document.createElement('div');
+            card.className = 'foodBagCard';
+            const pickupTimeFormatted = formatPickupTime(fb.pickup_time);
+            card.innerHTML = `
+                <strong>${fb.name}</strong> (${fb.description || 'No description'})<br/>
+                Price: ${fb.price.toFixed(2)} руб.<br/>
+                Discounted Price: ${fb.discounted_price.toFixed(2)} руб.<br/>
+                Quantity: ${fb.quantity}<br/>
+                Address: ${fb.address}<br/>
+                Owner: ${fb.owner?.email || 'Unknown'}<br/>
+                Pickup time: ${pickupTimeFormatted}<br/>
+                <label>Quantity to book: <input type="number" min="1" max="${fb.quantity}" value="1" id="bookQty_${fb.id}" style="width:50px" /></label><br/>
+                <button onclick="bookFoodBagDirect(${fb.id})" ${fb.quantity === 0 ? 'disabled' : ''}>
+                    Book This Food Bag
+                </button>
+            `;
+            container.appendChild(card);
+        });
+    }
+
+    function formatPickupTime(isoStr) {
+        if (!isoStr) return '';
+        const dt = new Date(isoStr);
+        return dt.toLocaleString([], { year: 'numeric', month: '2-digit', day: '2-digit', hour:'2-digit', minute:'2-digit' });
+    }
+
+    // Создание Food Bag
+    async function submitCreateFoodBag() {
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+            showOutput('Please login first');
+            return;
+        }
+
+        const name = document.getElementById('foodBagName').value.trim();
+        const description = document.getElementById('foodBagDescription').value.trim();
+        const price = parseFloat(document.getElementById('foodBagPrice').value);
+        const discounted_price = parseFloat(document.getElementById('foodBagDiscountedPrice').value);
+        const quantity = parseInt(document.getElementById('foodBagQuantity').value);
+        const address = document.getElementById('foodBagAddress').value.trim();
+        const pickup_time_input = document.getElementById('foodBagPickupTime').value;
+
+        if (!name || isNaN(price) || isNaN(discounted_price) || !quantity || !address || !pickup_time_input) {
+            showOutput('Please fill all required fields with valid values.');
+            return;
+        }
+        const pickup_time = new Date(pickup_time_input).toISOString();
+
+        const body = {
+            name,
+            description,
+            price,
+            discounted_price,
+            quantity,
+            address,
+            pickup_time
+        };
+
+        try {
+            const response = await fetch('/food-bags/', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(body)
+            });
+            if (response.ok) {
+                const data = await response.json();
+                showOutput(`Food Bag created:\n${JSON.stringify(data, null, 2)}`);
+                hideCreateFoodBagForm();
+                await getFoodBagsWithFilter();
+            } else {
+                const data = await response.json();
+                showOutput(`Failed to create food bag: ${data.detail || JSON.stringify(data)}`);
+            }
+        } catch (err) {
+            console.error(err);
+            showOutput(`Error creating food bag: ${err.message}`);
+        }
+    }
+
+    // Обновление Food Bag
+    function populateUpdateFoodBagSelect(setupListeners = false) {
+        const select = document.getElementById('updateFoodBagSelect');
+        select.innerHTML = '';
+        if (availableFoodBags.length === 0) {
+            const option = document.createElement('option');
+            option.text = 'No food bags available';
+            option.value = '';
+            select.add(option);
+            select.disabled = true;
+            return;
+        }
+        select.disabled = false;
+        availableFoodBags.forEach(fb => {
+            const option = document.createElement('option');
+            option.value = fb.id;
+            option.text = `${fb.name} - ${fb.description || 'No description'} (Qty: ${fb.quantity})`;
+            select.add(option);
+        });
+        if (setupListeners) {
+            select.removeEventListener('change', onUpdateFoodBagSelectChange);
+            select.addEventListener('change', onUpdateFoodBagSelectChange);
+            onUpdateFoodBagSelectChange();
+        }
+    }
+
+    function onUpdateFoodBagSelectChange() {
+        const select = document.getElementById('updateFoodBagSelect');
+        const fb = availableFoodBags.find(fb => fb.id == select.value);
+        if (fb) {
+            document.getElementById('updateFoodBagName').value = fb.name;
+            document.getElementById('updateFoodBagDescription').value = fb.description || '';
+            document.getElementById('updateFoodBagPrice').value = fb.price ?? 0;
+            document.getElementById('updateFoodBagDiscountedPrice').value = fb.discounted_price ?? 0;
+            document.getElementById('updateFoodBagQuantity').value = fb.quantity;
+            document.getElementById('updateFoodBagAddress').value = fb.address;
+            const dt = new Date(fb.pickup_time);
+            const tzoffset = dt.getTimezoneOffset() * 60000;
+            const localISOTime = (new Date(dt - tzoffset)).toISOString().slice(0,16);
+            document.getElementById('updateFoodBagPickupTime').value = localISOTime;
+        }
+    }
+
+    async function submitUpdateFoodBag() {
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+            showOutput('Please login first');
+            return;
+        }
+
+        const select = document.getElementById('updateFoodBagSelect');
+        const foodBagId = select.value;
+
+        if (!foodBagId) {
+            showOutput('Please select a valid food bag');
+            return;
+        }
+
+        const name = document.getElementById('updateFoodBagName').value.trim();
+        const description = document.getElementById('updateFoodBagDescription').value.trim();
+        const price = parseFloat(document.getElementById('updateFoodBagPrice').value);
+        const discounted_price = parseFloat(document.getElementById('updateFoodBagDiscountedPrice').value);
+        const quantity = parseInt(document.getElementById('updateFoodBagQuantity').value);
+        const address = document.getElementById('updateFoodBagAddress').value.trim();
+        const pickup_time_input = document.getElementById('updateFoodBagPickupTime').value;
+
+        if (!name || isNaN(price) || isNaN(discounted_price) || !quantity || !address || !pickup_time_input) {
+            showOutput('Please fill all required fields with valid values.');
+            return;
+        }
+        const pickup_time = new Date(pickup_time_input).toISOString();
+
+        const body = {
+            name,
+            description,
+            price,
+            discounted_price,
+            quantity,
+            address,
+            pickup_time
+        };
+
+        try {
+            const response = await fetch(`/food-bags/${foodBagId}`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(body)
+            });
+            if (response.ok) {
+                const data = await response.json();
+                showOutput(`Food Bag updated:\n${JSON.stringify(data, null, 2)}`);
+                hideUpdateFoodBagForm();
+                await getFoodBagsWithFilter();
+            } else {
+                const data = await response.json();
+                showOutput(`Failed to update food bag: ${data.detail || JSON.stringify(data)}`);
+            }
+        } catch (err) {
+            showOutput(`Error updating food bag: ${err.message}`);
+        }
+    }
+
+    // Удаление Food Bag
+    function populateDeleteFoodBagSelect() {
+        const select = document.getElementById('deleteFoodBagSelect');
+        select.innerHTML = '';
+        if (availableFoodBags.length === 0) {
+            const option = document.createElement('option');
+            option.text = 'No food bags available';
+            option.value = '';
+            select.add(option);
+            select.disabled = true;
+            return;
+        }
+        select.disabled = false;
+        availableFoodBags.forEach(fb => {
+            const option = document.createElement('option');
+            option.value = fb.id;
+            option.text = `${fb.name} - ${fb.description || 'No description'} (Qty: ${fb.quantity})`;
+            select.add(option);
+        });
+    }
+
+    async function submitDeleteFoodBag() {
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+            showOutput('Please login first');
+            return;
+        }
+        const select = document.getElementById('deleteFoodBagSelect');
+        const foodBagId = select.value;
+        if (!foodBagId) {
+            showOutput('Please select a valid food bag');
+            return;
+        }
+
+        try {
+            const response = await fetch(`/food-bags/${foodBagId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                showOutput(data.message || 'Food Bag deleted successfully');
+                hideDeleteFoodBagForm();
+                await getFoodBagsWithFilter();
+            } else {
+                const data = await response.json();
+                showOutput(`Failed to delete food bag: ${data.detail || JSON.stringify(data)}`);
+            }
+        } catch (err) {
+            showOutput(`Error deleting food bag: ${err.message}`);
+        }
+    }
+
+    // Функция бронирования food bag
+    async function bookFoodBag() {
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+            showOutput('Please login first');
+            return;
+        }
+        if (!(currentUser.role === 'client' || currentUser.role === 'admin')) {
+            showOutput('Only clients or admins can book food bags');
+            return;
+        }
+
+        const select = document.getElementById('foodBagSelect');
+        const quantityInput = document.getElementById('quantityInput');
+
+        const selectedFoodBagId = select.value;
+        const quantity = parseInt(quantityInput.value);
+
+        if (!selectedFoodBagId) {
+            showOutput('Please select a valid food bag');
+            return;
+        }
+        if (!quantity || quantity < 1) {
+            showOutput('Please enter a valid quantity (>=1)');
+            return;
+        }
+
+        try {
+            const response = await fetch('/bookings/', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    food_bag_id: Number(selectedFoodBagId),
+                    quantity: quantity
+                })
+            });
+            if (response.ok) {
+                const data = await response.json();
+                showOutput('Booking successful:\n' + JSON.stringify(data, null, 2));
+                document.getElementById('bookingForm').style.display = 'none';
+                await getFoodBagsWithFilter();
+            } else {
+                const data = await response.json();
+                showOutput('Failed to book food bag: ' + (data.detail || JSON.stringify(data)));
+            }
+        } catch (err) {
+            showOutput('Error during booking: ' + err.message);
+        }
+    }
+
+    // Помощь — показать/скрыть форму бронирования и заполнить селект
+    function toggleBookingForm() {
+        const form = document.getElementById('bookingForm');
+        form.style.display = (form.style.display === 'block') ? 'none' : 'block';
+        if (form.style.display === 'block') {
+            populateBookingFoodBagSelect();
+        }
+    }
+
+    function populateBookingFoodBagSelect() {
+        const select = document.getElementById('foodBagSelect');
+        select.innerHTML = '';
+        if (availableFoodBags.length === 0) {
+            const option = document.createElement('option');
+            option.text = 'No food bags available';
+            option.value = '';
+            select.add(option);
+            select.disabled = true;
+            return;
+        }
+        select.disabled = false;
+        availableFoodBags.forEach(fb => {
+            const option = document.createElement('option');
+            option.value = fb.id;
+            option.text = `${fb.name} - ${fb.description || 'No description'} (Qty: ${fb.quantity})`;
+            select.add(option);
+        });
+    }
+
+    // Получить список пользователей (админ)
+    async function getUsers() {
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+            showOutput('Please login first');
+            return;
+        }
+        try {
+            const response = await fetch('/users/', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await response.json();
+            if (response.ok) {
+                showOutput('Users:\n' + JSON.stringify(data, null, 2));
+            } else {
+                showOutput(`Failed to get users: ${data.detail || JSON.stringify(data)}`);
+            }
+        } catch (err) {
+            showOutput('Error getting users: ' + err.message);
+        }
+    }
+
+    function logout() {
+        localStorage.removeItem('access_token');
+        currentUser = null;
+        currentUserRole = null;
+        updateUI();
+        showOutput('Logged out successfully');
+    }
+
+    // Загрузка начальных данных при старте
+    window.onload = () => {
+        fetchCurrentUser();
+    };
+
+    async function bookFoodBagDirect(foodBagId) {
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+        showOutput('Please login first');
+        return;
+    }
+    if (!(currentUser.role === 'client' || currentUser.role === 'admin')) {
+        showOutput('Only clients or admins can book food bags');
+        return;
+    }
+    const quantityInput = document.getElementById(`bookQty_${foodBagId}`);
+    const quantity = quantityInput ? parseInt(quantityInput.value) : 1;
+    if (!quantity || quantity < 1) {
+        showOutput('Please enter a valid quantity (>=1)');
+        return;
+    }
+    try {
+        const response = await fetch('/bookings/', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                food_bag_id: Number(foodBagId),
+                quantity: quantity
+            })
+        });
+
+        if (!response.ok) {
+            let errorDetail = '';
+            try {
+                const errorData = await response.json();
+                errorDetail = errorData.detail || JSON.stringify(errorData);
+            } catch {
+                errorDetail = await response.text();
+            }
+            showOutput(`Failed to book food bag: HTTP ${response.status} - ${errorDetail}`);
+            return;
+        }
+
+        const data = await response.json();
+        showOutput('Booking successful:\n' + JSON.stringify(data, null, 2));
+        await getFoodBagsWithFilter();
+    } catch (err) {
+        showOutput('Error during booking: ' + err.message);
+    }
+}
+
+</script>
+
+</body>
+</html>
